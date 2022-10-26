@@ -3,8 +3,13 @@ import { abi, contractAddress } from "./constants.js"
 
 const connectButton = document.getElementById("connectButton")
 const fundButton = document.getElementById("fundButton")
+const balanceButton = document.getElementById("balanceButton")
+const withdrawButton = document.getElementById("withdrawButton")
+
 connectButton.onclick = connect
 fundButton.onclick = fund
+balanceButton.onclick = getBalance
+withdrawButton.onclick = withdraw
 
 async function connect() {
     console.log("hellllo")
@@ -20,8 +25,31 @@ async function connect() {
     }
 }
 
+async function withdraw() {
+    if (typeof window.ethereum != "undefined") {
+        console.log("Withdrawing...")
+        const provider = new ethers.providers.Web3Provider(window.ethereum)
+        const signer = provider.getSigner()
+        const contract = new ethers.Contract(contractAddress, abi, signer)
+        try {
+            const txResponse = await contract.withdraw()
+            await listenForTransactionMine(txResponse, provider)
+        } catch (err) {
+            console.log(err)
+        }
+    }
+}
+
+async function getBalance() {
+    if (typeof window.ethereum != "undefined") {
+        const provider = new ethers.providers.Web3Provider(window.ethereum)
+        const balance = await provider.getBalance(contractAddress)
+        console.log(ethers.utils.formatEther(balance))
+    }
+}
+
 async function fund(ethAmount) {
-    ethAmount = "0.1"
+    ethAmount = document.getElementById("ethAmount").value
     console.log(`Funding with ${ethAmount}...`)
     if (typeof window.ethereum !== "undefined") {
         const provider = new ethers.providers.Web3Provider(window.ethereum)
@@ -31,8 +59,22 @@ async function fund(ethAmount) {
             const transactionResponse = await contract.fund({
                 value: ethers.utils.parseEther(ethAmount),
             })
+            await listenForTransactionMine(transactionResponse, provider)
         } catch (error) {
             console.log(error)
         }
     }
+}
+
+function listenForTransactionMine(transactionResponse, provider) {
+    console.log(`Mining ${transactionResponse.hash}...`)
+    // listen for transaction to finish
+    return new Promise((resolve, reject) => {
+        provider.once(transactionResponse.hash, (txReceipt) => {
+            console.log(
+                `Completed with tx receipt ${txReceipt.confirmations} confirmations`
+            )
+            resolve()
+        })
+    })
 }
